@@ -1,27 +1,42 @@
 export default async function handler(req, res) {
-  const { universeId } = req.query;
-
-  if (!universeId) {
-    return res.status(400).json({ error: "Missing universeId" });
-  }
-
   try {
-    const robloxRes = await fetch(
-      `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100&sortOrder=Asc`
+    const { userId, universeId } = req.query;
+
+    if (!userId && !universeId) {
+      return res.status(400).json({
+        error: "Missing userId or universeId"
+      });
+    }
+
+    // Simple health check
+    if (req.query.test === "1") {
+      return res.status(200).json({ status: "alive" });
+    }
+
+    // Universe-based (preferred)
+    if (universeId) {
+      const r = await fetch(
+        `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100`
+      );
+
+      const data = await r.json();
+      return res.status(200).json(data);
+    }
+
+    // User-based fallback
+    const gamesRes = await fetch(
+      `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
     );
 
-    const data = await robloxRes.json();
+    const games = await gamesRes.json();
 
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Cache-Control", "s-maxage=60");
-
-    return res.status(200).json({
-      proxied: true,
-      universeId,
-      robloxResponse: data
-    });
+    return res.status(200).json(games);
 
   } catch (err) {
-    return res.status(500).json({ error: "Proxy fetch failed" });
+    console.error(err);
+    return res.status(500).json({
+      error: "Server crashed",
+      details: String(err)
+    });
   }
 }
