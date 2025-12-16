@@ -1,41 +1,48 @@
 export default async function handler(req, res) {
   try {
-    const { userId, universeId } = req.query;
+    const { target } = req.query;
 
-    if (!userId && !universeId) {
+    if (!target) {
       return res.status(400).json({
-        error: "Missing userId or universeId"
+        error: "Missing target URL"
       });
     }
 
-    // Simple health check
-    if (req.query.test === "1") {
-      return res.status(200).json({ status: "alive" });
+    // Decode URL
+    const url = decodeURIComponent(target);
+
+    // Allow ONLY Roblox domains (security)
+    const allowed = [
+      "games.roblox.com",
+      "users.roblox.com",
+      "inventory.roblox.com",
+      "catalog.roblox.com"
+    ];
+
+    const hostname = new URL(url).hostname;
+
+    if (!allowed.includes(hostname)) {
+      return res.status(403).json({
+        error: "Domain not allowed"
+      });
     }
 
-    // Universe-based (preferred)
-    if (universeId) {
-      const r = await fetch(
-        `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100`
-      );
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": "RobloxProxy/1.0"
+      }
+    });
 
-      const data = await r.json();
-      return res.status(200).json(data);
-    }
+    const data = await r.text();
 
-    // User-based fallback
-    const gamesRes = await fetch(
-      `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
-    );
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", r.headers.get("content-type") || "application/json");
 
-    const games = await gamesRes.json();
-
-    return res.status(200).json(games);
+    return res.status(r.status).send(data);
 
   } catch (err) {
-    console.error(err);
     return res.status(500).json({
-      error: "Server crashed",
+      error: "Proxy failed",
       details: String(err)
     });
   }
