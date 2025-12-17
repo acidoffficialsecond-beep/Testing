@@ -1,26 +1,37 @@
 export default async function handler(req, res) {
-  const { gameId } = req.query;
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-  if (!gameId) {
-    return res.status(400).json({ error: "Missing gameId" });
+  const gameId = req.query.gameId;
+
+  if (!gameId || isNaN(gameId)) {
+    return res.status(400).json({ error: "Invalid gameId" });
   }
 
   try {
-    const robloxUrl = `https://games.roblox.com/v1/games/${gameId}/game-passes?limit=50`;
-
-    const response = await fetch(robloxUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0"
+    const robloxResponse = await fetch(
+      `https://games.roblox.com/v1/games/${gameId}/game-passes?limit=50`,
+      {
+        headers: {
+          "User-Agent": "RobloxProxy/1.0"
+        }
       }
-    });
+    );
 
-    const data = await response.json();
+    if (!robloxResponse.ok) {
+      return res
+        .status(robloxResponse.status)
+        .json({ error: "Roblox request failed" });
+    }
 
+    const data = await robloxResponse.json();
+
+    // YOUR endpoint response
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET");
-
     res.status(200).json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+
+  } catch (error) {
+    res.status(500).json({ error: "Proxy failed", details: error.message });
   }
 }
