@@ -1,60 +1,37 @@
-async function fetchGamePasses(gameId) {
-  const url = `https://apis.roproxy.com/game-passes/v1/universes/${gameId}/game-passes?passView=Full&pageSize=100`;
-  const response = await fetch(url);
-  const data = await response.json();
-
-  return data?.gamePasses || [];
-}
-
 export default async function handler(req, res) {
-  const { userid } = req.query;
+  const { gameId } = req.query;
 
-  if (!userid) {
-    return res.status(400).json({ error: "Missing userid" });
+  if (!gameId) {
+    return res.status(400).json({ error: "Missing gameId" });
   }
 
   try {
-    let cursor = null;
-    const games = [];
+    const url = `https://apis.RoProxy.com/game-passes/v1/universes/${gameId}/game-passes?passView=Full&pageSize=100`;
 
-    // Fetch all games
-    do {
-      let url = `https://games.roproxy.com/v2/users/${userid}/games?sortOrder=Asc&limit=10`;
-      if (cursor) url += `&cursor=${cursor}`;
+    const response = await fetch(url);
+    const data = await response.json();
 
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (!data?.data) break;
-
-      for (const game of data.data) {
-        games.push(game.id);
-      }
-
-      cursor = data.nextPageCursor;
-    } while (cursor);
-
-    // Fetch gamepasses per game
-    const allPasses = [];
-
-    for (const gameId of games) {
-      const passes = await fetchGamePasses(gameId);
-      for (const pass of passes) {
-        allPasses.push({
-          gameId,
-          ...pass
-        });
-      }
+    if (!data.data) {
+      return res.status(404).json({ error: "No gamepasses found" });
     }
 
-    return res.status(200).json({
-      userId: userid,
-      gamePasses: allPasses
-    });
+    // Optional: clean response for donation games
+    const passes = data.data
+      .filter(p => p.price !== null)
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        description: p.description,
+        icon: p.iconImageAssetId
+          ? `https://www.roblox.com/asset-thumbnail/image?assetId=${p.iconImageAssetId}&width=420&height=420&format=png`
+          : null
+      }));
+
+    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
+    res.status(200).json(passes);
+
   } catch (err) {
-    return res.status(500).json({
-      error: "Failed to fetch gamepasses",
-      details: err.message
-    });
+    res.status(500).json({ error: "Failed to fetch gamepasses" });
   }
 }
