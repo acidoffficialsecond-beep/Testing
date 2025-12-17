@@ -1,76 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Auataun Proxy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    :root {
+      --bg: #020617;
+      --card: rgba(15, 23, 42, 0.85);
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: radial-gradient(circle at top, #020617, #000);
+      color: var(--text);
+      font-family: Inter, system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .box {
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      padding: 26px;
+      border-radius: var(--radius);
+      width: 400px;
+      box-shadow: 0 30px 60px rgba(0,0,0,.6);
+      animation: fadeUp .6s ease;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    p {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 6px 0 14px;
+    }
+
+    .input {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    input {
+      flex: 1;
+      background: #020617;
+      border: 1px solid #1e293b;
+      color: white;
+      padding: 10px 12px;
+      border-radius: 10px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .2s, transform .15s;
+    }
+
+    button:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      margin: 10px 0;
+      animation: pulse 1.2s infinite;
+    }
+
+    .results {
+      max-height: 260px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    .pass {
+      background: #020617;
+      border: 1px solid #1e293b;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      animation: slideIn .25s ease;
+    }
+
+    .pass strong {
+      font-size: 14px;
+    }
+
+    .pass span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    code {
+      display: block;
+      margin-top: 16px;
+      font-size: 13px;
+      color: #93c5fd;
+      opacity: .8;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity: .4 }
+      50% { opacity: 1 }
+    }
+  </style>
+</head>
+
 <body>
   <div class="box">
     <h1>Auataun Proxy</h1>
-    <p>Fetch Roblox games & game passes</p>
+    <p>Enter a Game ID to fetch game passes</p>
 
-    <!-- USER ID INPUT -->
     <div class="input">
-      <input id="userId" placeholder="Enter User ID" />
-      <button onclick="fetchGames()">Get Games</button>
+      <input id="gameId" placeholder="Enter Game ID" />
+      <button onclick="fetchByGameId()">Fetch</button>
     </div>
 
-    <div class="loading" id="loading">Loading…</div>
+    <div class="loading" id="loading">Fetching game passes…</div>
 
-    <!-- GAMES LIST -->
-    <div class="results" id="games"></div>
-
-    <!-- GAME PASSES -->
     <div class="results" id="passes"></div>
 
-    <code>/api/games?userId=USER_ID</code>
+    <code>/api/games?userId=GAME_ID</code>
     <code>/api/gamepasses?gameId=UNIVERSE_ID</code>
   </div>
 
-<script>
-  const loading = document.getElementById("loading");
-  const passesEl = document.getElementById("passes");
+  <script>
+    const loading = document.getElementById("loading");
+    const passesEl = document.getElementById("passes");
 
-  async function fetchByGameId() {
-    const gameId = document.getElementById("gameId").value.trim();
-    if (!gameId) return;
+    async function fetchByGameId() {
+      const gameId = document.getElementById("gameId").value.trim();
+      if (!gameId) return;
 
-    passesEl.innerHTML = "";
-    loading.style.display = "block";
+      passesEl.innerHTML = "";
+      loading.style.display = "block";
 
-    try {
-      // 1️⃣ Call /api/games to get Universe ID
-      const gamesRes = await fetch(`/api/games?userId=${gameId}`);
-      const gamesData = await gamesRes.json();
+      try {
+        // 1️⃣ Fetch games to get universe ID
+        const gamesRes = await fetch(`/api/games?userId=${gameId}`);
+        const gamesData = await gamesRes.json();
 
-      if (!gamesData.games || !gamesData.games.length) {
-        throw new Error("No games found");
-      }
+        if (!gamesData.games || !gamesData.games.length) {
+          throw new Error("No games found");
+        }
 
-      const universeId = gamesData.games[0].id;
+        const universeId = gamesData.games[0].id;
 
-      // 2️⃣ Fetch game passes using universeId
-      const passesRes = await fetch(`/api/gamepasses?gameId=${universeId}`);
-      const passesData = await passesRes.json();
+        // 2️⃣ Fetch game passes
+        const passesRes = await fetch(`/api/gamepasses?gameId=${universeId}`);
+        const passesData = await passesRes.json();
 
-      loading.style.display = "none";
+        loading.style.display = "none";
 
-      if (!passesData.gamePasses || !passesData.gamePasses.length) {
+        if (!passesData.gamePasses || !passesData.gamePasses.length) {
+          passesEl.innerHTML =
+            "<p style='color:#94a3b8;font-size:13px'>No game passes.</p>";
+          return;
+        }
+
+        passesData.gamePasses.forEach(pass => {
+          const el = document.createElement("div");
+          el.className = "pass";
+          el.innerHTML = `
+            <strong>${pass.name}</strong>
+            <span>Price: ${pass.price ?? "Offsale"}</span>
+            <span>ID: ${pass.id}</span>
+          `;
+          passesEl.appendChild(el);
+        });
+
+      } catch (err) {
+        loading.style.display = "none";
         passesEl.innerHTML =
-          "<p style='color:#94a3b8;font-size:13px'>No game passes.</p>";
-        return;
+          "<p style='color:#f87171;font-size:13px'>Failed to fetch game passes.</p>";
       }
-
-      passesData.gamePasses.forEach(pass => {
-        const el = document.createElement("div");
-        el.className = "pass";
-        el.innerHTML = `
-          <strong>${pass.name}</strong>
-          <span>Price: ${pass.price ?? "Offsale"}</span>
-          <span>ID: ${pass.id}</span>
-        `;
-        passesEl.appendChild(el);
-      });
-
-    } catch (err) {
-      loading.style.display = "none";
-      passesEl.innerHTML =
-        "<p style='color:#f87171;font-size:13px'>Failed to fetch game passes.</p>";
     }
-  }
-</script>
+  </script>
 </body>
+</html>
