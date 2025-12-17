@@ -1,39 +1,50 @@
-/**
- * Fetch all game passes for a given Roblox universe (game) ID
- * @param {string | number} gameId
- * @returns {Promise<Array>}
- */
-async function fetchGamePasses(gameId) {
-  const passes = [];
-  let cursor = null;
-
+export default async function handler(req, res) {
   try {
+    const { gameId } = req.query;
+
+    if (!gameId) {
+      return res.status(400).json({ error: "Missing gameId" });
+    }
+
+    let passes = [];
+    let cursor = null;
+
     do {
-      const url = new URL(
-        `https://apis.roproxy.com/game-passes/v1/universes/${gameId}/game-passes`
-      );
+      const url =
+        `https://apis.roproxy.com/game-passes/v1/universes/${gameId}/game-passes` +
+        `?passView=Full&pageSize=100` +
+        (cursor ? `&cursor=${cursor}` : "");
 
-      url.searchParams.set("passView", "Full");
-      url.searchParams.set("pageSize", "100");
-      if (cursor) url.searchParams.set("cursor", cursor);
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Vercel-GamePass-Fetcher"
+        }
+      });
 
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`RoProxy error ${response.status}: ${text}`);
+      }
 
-      const data = await res.json();
+      const data = await response.json();
 
-      if (data?.gamePasses) {
+      if (Array.isArray(data?.gamePasses)) {
         passes.push(...data.gamePasses);
       }
 
-      cursor = data?.nextPageCursor ?? null;
+      cursor = data?.nextPageCursor || null;
     } while (cursor);
 
-    return passes;
+    return res.status(200).json({
+      count: passes.length,
+      gamePasses: passes
+    });
+
   } catch (err) {
-    console.error("Failed to fetch game passes:", err);
-    return [];
+    console.error("FUNCTION ERROR:", err);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: err.message
+    });
   }
 }
-
-module.exports = { fetchGamePasses };
