@@ -1,5 +1,5 @@
 {
-  "name": "roblox-gamepasses-api",
-  "private": true,
-  "type": "module"
+  "name": "roblox-proxy",
+  "version": "1.0.0",
+  "private": true
 }
