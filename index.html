@@ -4,57 +4,209 @@
   <meta charset="UTF-8" />
   <title>Roblox Donation API</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
+    :root {
+      --bg: #020617;
+      --card: rgba(15, 23, 42, 0.85);
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      background: #0f172a;
-      color: #e5e7eb;
-      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #020617, #000);
+      color: var(--text);
+      font-family: Inter, system-ui, sans-serif;
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      padding: 20px;
     }
+
     .box {
-      background: #020617;
-      padding: 24px;
-      border-radius: 12px;
-      width: 360px;
-      text-align: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,.4);
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      padding: 26px;
+      border-radius: var(--radius);
+      width: 380px;
+      box-shadow: 0 30px 60px rgba(0,0,0,.6);
+      animation: fadeUp .6s ease;
     }
+
     h1 {
-      margin-bottom: 10px;
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: .3px;
     }
-    a {
-      display: block;
-      margin: 12px 0;
-      padding: 10px;
-      background: #2563eb;
+
+    p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    .input {
+      display: flex;
+      margin: 18px 0;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      background: #020617;
+      border: 1px solid #1e293b;
       color: white;
-      text-decoration: none;
-      border-radius: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      outline: none;
+      transition: border .2s;
     }
-    a:hover {
-      background: #1d4ed8;
+
+    input:focus {
+      border-color: var(--accent);
     }
+
+    button {
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform .15s, background .2s;
+    }
+
+    button:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .loading {
+      display: none;
+      margin: 14px 0;
+      text-align: center;
+      font-size: 14px;
+      color: var(--muted);
+      animation: pulse 1.2s infinite;
+    }
+
+    .results {
+      margin-top: 14px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    .pass {
+      background: #020617;
+      border: 1px solid #1e293b;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      animation: slideIn .25s ease;
+    }
+
+    .pass strong {
+      font-size: 14px;
+    }
+
+    .pass span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
     code {
       display: block;
-      margin-top: 12px;
+      margin-top: 18px;
+      font-size: 13px;
       color: #93c5fd;
-      font-size: 14px;
+      opacity: .8;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity: .4 }
+      50% { opacity: 1 }
     }
   </style>
 </head>
+
 <body>
   <div class="box">
     <h1>Auataun Proxy</h1>
-    <p>Available endpoints:</p>
+    <p>Fetch Roblox game passes by Universe ID</p>
 
-    <a href="/api/gamepasses?gameId=1">
-      Get Gamepasses from a game
-    </a>
+    <div class="input">
+      <input id="gameId" placeholder="Enter Universe ID" />
+      <button onclick="fetchPasses()">Fetch</button>
+    </div>
 
-    <code>/api/gamepasses?userId=USER_ID</code>
+    <div class="loading" id="loading">Fetching game passes…</div>
+
+    <div class="results" id="results"></div>
+
+    <code>/api/gamepasses?gameId=UNIVERSE_ID</code>
   </div>
+
+  <script>
+    async function fetchPasses() {
+      const gameId = document.getElementById("gameId").value.trim();
+      const results = document.getElementById("results");
+      const loading = document.getElementById("loading");
+
+      results.innerHTML = "";
+      if (!gameId) return;
+
+      loading.style.display = "block";
+
+      try {
+        const res = await fetch(`/api/gamepasses?gameId=${gameId}`);
+        const data = await res.json();
+
+        loading.style.display = "none";
+
+        if (!data.gamePasses || !data.gamePasses.length) {
+          results.innerHTML = "<p style='color:#94a3b8;font-size:13px'>No game passes found.</p>";
+          return;
+        }
+
+        data.gamePasses.forEach(pass => {
+          const el = document.createElement("div");
+          el.className = "pass";
+          el.innerHTML = `
+            <strong>${pass.name}</strong>
+            <span>Price: ${pass.price ?? "Offsale"}</span>
+            <span>ID: ${pass.id}</span>
+          `;
+          results.appendChild(el);
+        });
+
+      } catch (err) {
+        loading.style.display = "none";
+        results.innerHTML = "<p style='color:#f87171;font-size:13px'>Failed to fetch.</p>";
+      }
+    }
+  </script>
 </body>
 </html>
