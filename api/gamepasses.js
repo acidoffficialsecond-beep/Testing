@@ -1,37 +1,39 @@
-export default async function handler(req, res) {
-  const { gameId } = req.query;
-
-  if (!gameId) {
-    return res.status(400).json({ error: "Missing gameId" });
-  }
+/**
+ * Fetch all game passes for a given Roblox universe (game) ID
+ * @param {string | number} gameId
+ * @returns {Promise<Array>}
+ */
+async function fetchGamePasses(gameId) {
+  const passes = [];
+  let cursor = null;
 
   try {
-    const url = `https://apis.RoProxy.com/game-passes/v1/universes/${gameId}/game-passes?passView=Full&pageSize=100`;
+    do {
+      const url = new URL(
+        `https://apis.roproxy.com/game-passes/v1/universes/${gameId}/game-passes`
+      );
 
-    const response = await fetch(url);
-    const data = await response.json();
+      url.searchParams.set("passView", "Full");
+      url.searchParams.set("pageSize", "100");
+      if (cursor) url.searchParams.set("cursor", cursor);
 
-    if (!data.data) {
-      return res.status(404).json({ error: "No gamepasses found" });
-    }
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    // Optional: clean response for donation games
-    const passes = data.data
-      .filter(p => p.price !== null)
-      .map(p => ({
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        description: p.description,
-        icon: p.iconImageAssetId
-          ? `https://www.roblox.com/asset-thumbnail/image?assetId=${p.iconImageAssetId}&width=420&height=420&format=png`
-          : null
-      }));
+      const data = await res.json();
 
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
-    res.status(200).json(passes);
+      if (data?.gamePasses) {
+        passes.push(...data.gamePasses);
+      }
 
+      cursor = data?.nextPageCursor ?? null;
+    } while (cursor);
+
+    return passes;
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch gamepasses" });
+    console.error("Failed to fetch game passes:", err);
+    return [];
   }
 }
+
+module.exports = { fetchGamePasses };
