@@ -34,7 +34,7 @@
       backdrop-filter: blur(12px);
       padding: 26px;
       border-radius: var(--radius);
-      width: 400px;
+      width: 420px;
       box-shadow: 0 30px 60px rgba(0,0,0,.6);
       animation: fadeUp .6s ease;
     }
@@ -53,7 +53,7 @@
     .input {
       display: flex;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     input {
@@ -100,20 +100,21 @@
       margin-top: 10px;
     }
 
-    .pass {
+    .item {
       background: #020617;
       border: 1px solid #1e293b;
       padding: 10px;
       border-radius: 10px;
       margin-bottom: 8px;
       animation: slideIn .25s ease;
+      cursor: pointer;
     }
 
-    .pass strong {
+    .item strong {
       font-size: 14px;
     }
 
-    .pass span {
+    .item span {
       display: block;
       font-size: 12px;
       color: var(--muted);
@@ -121,7 +122,7 @@
 
     code {
       display: block;
-      margin-top: 16px;
+      margin-top: 14px;
       font-size: 13px;
       color: #93c5fd;
       opacity: .8;
@@ -147,58 +148,86 @@
 <body>
   <div class="box">
     <h1>Auataun Proxy</h1>
-    <p>Enter a Game ID to fetch game passes</p>
+    <p>Fetch games by User ID, then view game passes</p>
 
+    <!-- USER ID -->
     <div class="input">
-      <input id="gameId" placeholder="Enter Game ID" />
-      <button onclick="fetchByGameId()">Fetch</button>
+      <input id="userId" placeholder="Enter Roblox User ID" />
+      <button onclick="fetchGames()">Get Games</button>
     </div>
 
-    <div class="loading" id="loading">Fetching game passes…</div>
+    <div class="loading" id="loading">Loading…</div>
 
+    <!-- GAMES -->
+    <div class="results" id="games"></div>
+
+    <!-- GAME PASSES -->
     <div class="results" id="passes"></div>
 
-    <code>/api/games?userId=GAME_ID</code>
+    <code>/api/games?userId=USER_ID</code>
     <code>/api/gamepasses?gameId=UNIVERSE_ID</code>
   </div>
 
   <script>
     const loading = document.getElementById("loading");
+    const gamesEl = document.getElementById("games");
     const passesEl = document.getElementById("passes");
 
-    async function fetchByGameId() {
-      const gameId = document.getElementById("gameId").value.trim();
-      if (!gameId) return;
+    async function fetchGames() {
+      const userId = document.getElementById("userId").value.trim();
+      if (!userId) return;
 
+      gamesEl.innerHTML = "";
       passesEl.innerHTML = "";
       loading.style.display = "block";
 
       try {
-        // 1️⃣ Fetch games to get universe ID
-        const gamesRes = await fetch(`/api/games?userId=${gameId}`);
-        const gamesData = await gamesRes.json();
-
-        if (!gamesData.games || !gamesData.games.length) {
-          throw new Error("No games found");
-        }
-
-        const universeId = gamesData.games[0].id;
-
-        // 2️⃣ Fetch game passes
-        const passesRes = await fetch(`/api/gamepasses?gameId=${universeId}`);
-        const passesData = await passesRes.json();
-
+        const res = await fetch(`/api/games?userId=${userId}`);
+        const data = await res.json();
         loading.style.display = "none";
 
-        if (!passesData.gamePasses || !passesData.gamePasses.length) {
+        if (!data.games || !data.games.length) {
+          gamesEl.innerHTML =
+            "<p style='color:#94a3b8;font-size:13px'>No games found.</p>";
+          return;
+        }
+
+        data.games.forEach(game => {
+          const el = document.createElement("div");
+          el.className = "item";
+          el.innerHTML = `
+            <strong>${game.name}</strong>
+            <span>Universe ID: ${game.id}</span>
+          `;
+          el.onclick = () => fetchPasses(game.id);
+          gamesEl.appendChild(el);
+        });
+
+      } catch {
+        loading.style.display = "none";
+        gamesEl.innerHTML =
+          "<p style='color:#f87171;font-size:13px'>Failed to fetch games.</p>";
+      }
+    }
+
+    async function fetchPasses(universeId) {
+      passesEl.innerHTML = "";
+      loading.style.display = "block";
+
+      try {
+        const res = await fetch(`/api/gamepasses?gameId=${universeId}`);
+        const data = await res.json();
+        loading.style.display = "none";
+
+        if (!data.gamePasses || !data.gamePasses.length) {
           passesEl.innerHTML =
             "<p style='color:#94a3b8;font-size:13px'>No game passes.</p>";
           return;
         }
 
-        passesData.gamePasses.forEach(pass => {
+        data.gamePasses.forEach(pass => {
           const el = document.createElement("div");
-          el.className = "pass";
+          el.className = "item";
           el.innerHTML = `
             <strong>${pass.name}</strong>
             <span>Price: ${pass.price ?? "Offsale"}</span>
@@ -207,7 +236,7 @@
           passesEl.appendChild(el);
         });
 
-      } catch (err) {
+      } catch {
         loading.style.display = "none";
         passesEl.innerHTML =
           "<p style='color:#f87171;font-size:13px'>Failed to fetch game passes.</p>";
